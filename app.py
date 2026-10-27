@@ -79,7 +79,7 @@ def listar_ofertas():
 
 
 def achar_curriculo(curso, versao):
-    caminho = PASTA_DO_APP / f"curriculo_{curso}_{versao.replace('/', '-')}.json"
+    caminho = PASTA_DO_APP / 'grades_curricular' / f"curriculo_{curso}_{versao.replace('/', '-')}.json"
     return caminho if caminho.exists() else None
 
 
