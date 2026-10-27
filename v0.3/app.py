@@ -1,12 +1,13 @@
 import streamlit as st
 import json
-import pandas as pd
+import csv
+import html
+import io
 
 # Importações robustas para lidar com possíveis sufixos "_2" nos seus arquivos
 
 import extrator_boa
 import motor_grade
-import extrator_ofertas
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA (Deve ser o 1º comando Streamlit)
 # ==========================================
@@ -14,8 +15,22 @@ st.set_page_config(page_title="PBAER UFRJ - Planejador", layout="wide")
 
 st.markdown("""
 <style>
-    .titulo-principal { text-align: center; color: #003366; }
-    .stButton>button { width: 100%; border-radius: 5px; }
+    .titulo-principal { text-align: center; color: #0f3d68; margin-bottom: 0.25rem; }
+    .stButton>button { width: 100%; border-radius: 8px; }
+    .resumo-grade { background: linear-gradient(135deg, #eef6ff, #f8fbff);
+        border: 1px solid #cfe2f5; border-radius: 12px; padding: 0.8rem 1rem;
+        margin: 0.75rem 0 1.25rem; }
+    table.horario { border-collapse: separate; border-spacing: 6px; width: 100%;
+        table-layout: fixed; }
+    table.horario th { color: #475569; font-size: .85rem; padding: .4rem; }
+    table.horario td { padding: 0; vertical-align: top; }
+    .celula-hora { color: #64748b; font-size: .78rem; text-align: right;
+        padding: .55rem !important; width: 100px; vertical-align: middle !important; }
+    .celula-vazia { height: 96px; border-radius: 8px; background: #f8fafc;
+        border: 1px dashed #dbe4ee; }
+    .cartao-aula { min-height: 96px; padding: 8px; border-radius: 9px;
+        border: 1px solid #9bc1e8; text-align: center; line-height: 1.25;
+        box-sizing: border-box; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -33,6 +48,36 @@ if "grade_gerada" not in st.session_state:
 
 def mudar_tela(nova_tela):
     st.session_state.tela = nova_tela
+
+
+def nome_docentes(item):
+    """Apresenta todos os docentes da turma; o motor usa a chave plural."""
+    docentes = item.get("docentes", [])
+    if isinstance(docentes, str):
+        docentes = [docentes]
+    return ", ".join(str(docente).strip() for docente in docentes if str(docente).strip()) or "A definir"
+
+
+def grade_em_csv(grade):
+    """Gera uma planilha CSV com os dados da grade e codificação compatível com Excel."""
+    saida = io.StringIO()
+    escritor = csv.writer(saida)
+    escritor.writerow(["Código", "Matéria", "Tipo", "Créditos", "Horários", "Docente", "Salas", "Motivo"])
+    for item in grade:
+        escritor.writerow([
+            item.get("codigo", ""),
+            item.get("nome", ""),
+            item.get("tipo", ""),
+            item.get("creditos", ""),
+            " · ".join(
+                f'{a.get("dia", "")} {a.get("inicio", "")}-{a.get("fim", "")}'
+                for a in item.get("aulas", [])
+            ),
+            nome_docentes(item),
+            ", ".join(sorted({a["sala"] for a in item.get("aulas", []) if a.get("sala")})),
+            item.get("motivo", ""),
+        ])
+    return saida.getvalue().encode("utf-8-sig")
 
 # ==========================================
 # CARREGAMENTO DE DADOS (JSONs)
@@ -174,14 +219,34 @@ def tela_resultado():
     grade = st.session_state.grade_gerada.get("grade", [])
     estatisticas = st.session_state.grade_gerada.get("estatisticas", {})
     
-    st.write(f"**Créditos na Grade:** {st.session_state.grade_gerada.get('creditos_total')} | **Matérias Avaliadas:** {estatisticas.get('candidatas')}")
+    creditos_total = st.session_state.grade_gerada.get("creditos_total", 0)
+    st.markdown(
+        f'<div class="resumo-grade"><strong>{creditos_total:g} créditos</strong> '
+        f'na grade · <strong>{len(grade)} matérias</strong> selecionadas · '
+        f'{estatisticas.get("candidatas", 0)} candidatas avaliadas</div>',
+        unsafe_allow_html=True,
+    )
     
     st.subheader("Turmas Selecionadas")
     if not grade:
         st.info("O motor não selecionou nenhuma matéria com os parâmetros atuais.")
     else:
-        df_grade = pd.DataFrame(grade)
-        st.dataframe(df_grade[["codigo", "nome", "tipo", "creditos", "motivo"]], use_container_width=True, hide_index=True)
+        linhas_grade = [{
+            "Código": item.get("codigo", ""),
+            "Matéria": item.get("nome", ""),
+            "Tipo": item.get("tipo", ""),
+            "Créditos": item.get("creditos", ""),
+            "Docente": nome_docentes(item),
+            "Motivo": item.get("motivo", ""),
+        } for item in grade]
+        st.dataframe(linhas_grade, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Baixar grade em CSV",
+            data=grade_em_csv(grade),
+            file_name="grade_sugerida.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
         
         # ==========================================
         # NOVO: Horário Visual Automatizado e Colorido
@@ -210,7 +275,9 @@ def tela_resultado():
         for item in grade:
             cod = item.get("codigo", "")
             nome = item.get("nome", "")
-            docente = item.get("docente", "Docente não informado")
+            docente = html.escape(nome_docentes(item))
+            cod = html.escape(str(cod))
+            nome = html.escape(str(nome))
             cor = cor_disciplina.get(cod, "#ffffff")
             
             # Limitar o tamanho do nome da disciplina para não desconfigurar a tabela
@@ -219,7 +286,7 @@ def tela_resultado():
             
             # Cria o cartão com CSS embutido
             card_html = f'''
-            <div style="background-color: {cor}; padding: 6px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 4px; text-align: center; line-height: 1.2;">
+            <div class="cartao-aula" style="background-color: {cor}; margin-bottom: 4px;">
                 <strong style="font-size: 0.9em; color: #333;">{cod}</strong><br>
                 <span style="font-size: 0.8em; font-weight: bold; color: #111;">{nome}</span><br>
                 <span style="font-size: 0.75em; color: #444;"><em>{docente}</em></span>
@@ -236,21 +303,20 @@ def tela_resultado():
                         grid[hora_faixa][dia_str].append(card_html)
                         
         # Construir a Tabela HTML Final
-        html_tabela = '<table style="width: 100%; border-collapse: collapse; font-family: sans-serif;">'
-        html_tabela += '<thead><tr style="background-color: #f0f2f6;">'
-        html_tabela += '<th style="border: 1px solid #ddd; padding: 10px; text-align: center; width: 120px;">Horário</th>'
+        html_tabela = '<table class="horario"><thead><tr>'
+        html_tabela += '<th style="width: 100px;">Horário</th>'
         for d in dias:
-            html_tabela += f'<th style="border: 1px solid #ddd; padding: 10px; text-align: center; width: 17%;">{d}</th>'
+            html_tabela += f'<th>{d}</th>'
         html_tabela += '</tr></thead><tbody>'
         
         for h in horas:
             html_tabela += '<tr>'
-            html_tabela += f'<td style="border: 1px solid #ddd; padding: 10px; text-align: center; font-weight: bold; vertical-align: middle;">{h}</td>'
+            html_tabela += f'<td class="celula-hora">{h}</td>'
             for d in dias:
                 celulas = grid[h][d]
                 # Se houver conflito de horário (duas matérias na mesma hora), empilha os cards. Se não, exibe traço.
-                conteudo = "".join(celulas) if celulas else '<div style="color: #ccc; text-align: center;">-</div>'
-                html_tabela += f'<td style="border: 1px solid #ddd; padding: 6px; vertical-align: top;">{conteudo}</td>'
+                conteudo = "".join(celulas) if celulas else '<div class="celula-vazia"></div>'
+                html_tabela += f'<td>{conteudo}</td>'
             html_tabela += '</tr>'
         html_tabela += '</tbody></table>'
         
