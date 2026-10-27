@@ -23,6 +23,9 @@ from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
 
 from extrator_boa import ErroDeBOA, extrair_boa
 from motor_grade import (CREDITO_EXTRA_PADRAO_DE_OPTATIVAS, ROTULO_DA_CATEGORIA, ErroDoMotor,
@@ -317,6 +320,77 @@ def grade_em_csv(grade):
     return saida.getvalue().encode("utf-8-sig")   # com BOM, para o Excel abrir os acentos certo
 
 
+def grade_em_imagem(resultado, formato):
+    """Gera uma representação portátil da grade em PNG ou PDF."""
+    if formato not in ("png", "pdf"):
+        raise ValueError("formato deve ser 'png' ou 'pdf'")
+
+    grade = resultado["grade"]
+    periodo = resultado["_meta"]["periodo_das_ofertas"]
+    figura = Figure(figsize=(14, 9), facecolor="white")
+    eixo = figura.add_axes([0.04, 0.08, 0.92, 0.78])
+    eixo.axis("off")
+    figura.text(0.04, 0.94, f"Planejador de Grade — {periodo}", fontsize=18, weight="bold", color="#111827")
+    figura.text(0.04, 0.905, f'{resultado["_meta"]["curso"]["nome"]} ({resultado["_meta"]["curso"]["codigo"]})',
+                fontsize=10, color="#475569")
+    figura.text(0.04, 0.875,
+                f'Créditos: {resultado["creditos_total"]:g} · Matérias: {len(grade)} · '
+                f'Currículo: {resultado["_meta"]["versao_curricular"]}',
+                fontsize=10, color="#475569")
+
+    dias = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
+    aulas = [a for materia in grade for a in materia["aulas"]]
+    faixas = sorted({(a["inicio_min"], a["fim_min"], a["inicio"], a["fim"]) for a in aulas})
+    if faixas:
+        eixo.set_xlim(0, len(dias))
+        eixo.set_ylim(0, len(faixas))
+        eixo.set_xticks([i + 0.5 for i in range(len(dias))], dias)
+        eixo.tick_params(axis="x", top=True, labeltop=True, bottom=False, labelbottom=False,
+                         length=0, pad=8, labelsize=10)
+        eixo.set_yticks([i + 0.5 for i in range(len(faixas))],
+                        [f"{inicio}–{fim}" for _, _, inicio, fim in faixas])
+        eixo.tick_params(axis="y", length=0, pad=8, labelsize=8)
+        for x in range(len(dias) + 1):
+            eixo.axvline(x, color="#cbd5e1", linewidth=0.8)
+        for y in range(len(faixas) + 1):
+            eixo.axhline(y, color="#cbd5e1", linewidth=0.8)
+        indice_faixa = {(inicio, fim): i for i, (inicio, fim, _, _) in enumerate(faixas)}
+        for materia in grade:
+            cor = "#dbeafe" if materia["categoria"] == "obrigatoria" else "#dcfce7"
+            borda = "#60a5fa" if materia["categoria"] == "obrigatoria" else "#4ade80"
+            professores = ", ".join(materia["docentes"]) or "Professor a definir"
+            for aula in materia["aulas"]:
+                if aula["dia_numero"] >= len(dias):
+                    continue
+                linha = indice_faixa[(aula["inicio_min"], aula["fim_min"])]
+                eixo.add_patch(Rectangle((aula["dia_numero"], linha), 1, 1,
+                                         facecolor=cor, edgecolor=borda, linewidth=0.8))
+                eixo.text(aula["dia_numero"] + 0.05, linha + 0.5,
+                          f'{materia["codigo"]}\n{materia["nome"]}\n{professores}',
+                          ha="left", va="center", fontsize=6.5, color="#0f172a",
+                          wrap=True, clip_on=True)
+    else:
+        eixo.text(0.5, 0.65, "Nenhuma matéria foi incluída na grade.",
+                  ha="center", va="center", fontsize=14, color="#64748b")
+
+    linhas = [[g["codigo"], g["nome"], f'{g["creditos"]:g}',
+               " · ".join(f'{a["dia"]} {a["inicio"]}-{a["fim"]}' for a in g["aulas"]),
+               ", ".join(g["docentes"]) or "A definir",
+               ", ".join(sorted({a["sala"] for a in g["aulas"] if a["sala"]})) or "A definir"]
+              for g in grade]
+    if linhas:
+        tabela = figura.add_axes([0.04, 0.005, 0.92, 0.16])
+        tabela.axis("off")
+        tabela.table(cellText=linhas, colLabels=["Código", "Matéria", "Créd.", "Horários", "Professor", "Sala"],
+                     colWidths=[0.10, 0.27, 0.07, 0.27, 0.19, 0.10],
+                     loc="upper center", cellLoc="left")
+
+    saida = io.BytesIO()
+    canvas = FigureCanvasAgg(figura)
+    canvas.print_png(saida) if formato == "png" else figura.savefig(saida, format="pdf")
+    return saida.getvalue()
+
+
 def tela_resultado():
     escolhas = st.session_state.escolhas
     try:
@@ -374,6 +448,14 @@ def tela_resultado():
                            icon=":material/download:", width="stretch")
     direita.download_button("Baixar JSON", json.dumps(resultado, ensure_ascii=False, indent=2).encode("utf-8"),
                             file_name="grade.json", mime="application/json", icon=":material/data_object:", width="stretch")
+    exportacoes = st.columns(2)
+    exportacoes[0].download_button("Baixar PDF", grade_em_imagem(resultado, "pdf"),
+                                   file_name=f"grade_{resultado['_meta']['periodo_das_ofertas']}.pdf",
+                                   mime="application/pdf", icon=":material/picture_as_pdf:", width="stretch",
+                                   on_click="ignore")
+    exportacoes[1].download_button("Baixar PNG", grade_em_imagem(resultado, "png"),
+                                   file_name=f"grade_{resultado['_meta']['periodo_das_ofertas']}.png",
+                                   mime="image/png", icon=":material/image:", width="stretch")
 
 
 # ======================================================================================
