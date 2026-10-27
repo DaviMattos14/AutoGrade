@@ -210,14 +210,14 @@ def tela_envio():
     if not ofertas:
         st.error("Não encontrei nenhum arquivo ofertas_<período>.json na pasta do app.")
         st.stop()
+    # Usa automaticamente o período mais recente disponível na base de ofertas.
+    periodo = next(reversed(ofertas))
 
     esquerda, direita = st.columns([3, 2], gap="large")
     with esquerda:
         with st.container(border=True):
             st.subheader("1. Envie o seu BOA")
             arquivo = st.file_uploader("Boletim de Orientação Acadêmica (PDF)", type=["pdf"])
-            periodos = list(ofertas)
-            periodo = st.selectbox("Período das ofertas", periodos, index=len(periodos) - 1)
             if st.button("Ler BOA", type="primary", disabled=arquivo is None, icon=":material/description:"):
                 ler_boa(arquivo, periodo)
         if st.session_state.boa:
