@@ -46,6 +46,7 @@ VERSAO_DO_MOTOR = "0.1-beta"
 PESOS_DA_PRIORIDADE = {"periodos": (20, 5), "equilibrado": (10, 10), "prerequisitos": (5, 20)}
 PONTOS_BASE_OBRIGATORIA = 1000    # obrigatórias sempre vencem optativas
 PONTOS_BASE_OPTATIVA = 100
+BONUS_AREA_DE_INTERESSE = 100    # favorece a área escolhida, mantendo as demais optativas elegíveis
 PERIODO_MAXIMO = 10               # o bônus de período é (PERIODO_MAXIMO - período)
 CREDITO_EXTRA_PADRAO_DE_OPTATIVAS = 3   # folga para completar matérias inteiras (ex.: faltam 6, cabem 8)
 LIMITE_DE_NOS_DA_BUSCA = 2_000_000       # trava de segurança; se estourar, devolve a melhor achada
@@ -233,10 +234,14 @@ def descrever_choque(turma_candidata, escolhidas):
 def gerar_grade(dados_do_boa, curriculo, ofertas, limite_de_creditos=24, cursando_como_cumpridas=(),
                 incluir_optativas=True, prioridade="equilibrado",
                 credito_extra_de_optativas=CREDITO_EXTRA_PADRAO_DE_OPTATIVAS,
-                conjuntos_a_evitar=(), diferenca_minima=2):
+                conjuntos_a_evitar=(), diferenca_minima=2, area_de_interesse=None):
     if prioridade not in PESOS_DA_PRIORIDADE:
         raise ErroDoMotor(f"prioridade deve ser uma de {list(PESOS_DA_PRIORIDADE)}")
     peso_periodo, peso_destrava = PESOS_DA_PRIORIDADE[prioridade]
+    areas = curriculo.get("areas_de_interesse", {})
+    if area_de_interesse is not None and area_de_interesse not in areas:
+        raise ErroDoMotor("Área de interesse não encontrada no currículo.")
+    codigos_da_area = set(areas.get(area_de_interesse, ()))
     avisos = []
 
     # ---------- confere se as três fontes são compatíveis ----------
@@ -321,6 +326,8 @@ def gerar_grade(dados_do_boa, curriculo, ofertas, limite_de_creditos=24, cursand
                          + peso_destrava * destrava[codigo])
         else:
             pontuacao = PONTOS_BASE_OPTATIVA + peso_destrava * destrava[codigo] + disciplina["creditos"]
+            if categoria == "optativa_condicionada" and codigo in codigos_da_area:
+                pontuacao += BONUS_AREA_DE_INTERESSE
         assuntos.append({
             "codigo": codigo, "pontuacao": float(pontuacao), "creditos": float(disciplina["creditos"]), "categoria": categoria,
             "turmas": [{"id": t["id"], "aulas": [(a["dia_numero"], a["inicio_min"], a["fim_min"]) for a in t["aulas"]]} for t in turmas],
@@ -343,6 +350,8 @@ def gerar_grade(dados_do_boa, curriculo, ofertas, limite_de_creditos=24, cursand
             motivo = f'Obrig. · período {disciplina["periodo"]}' + (f' · destrava {destrava[codigo]}' if destrava[codigo] else "")
         else:
             motivo = ROTULO_DA_CATEGORIA[categoria] + (f' · destrava {destrava[codigo]}' if destrava[codigo] else "")
+            if categoria == "optativa_condicionada" and codigo in codigos_da_area:
+                motivo += f' · área de interesse: {area_de_interesse}'
         grade.append({
             "codigo": codigo, "nome": disciplina["nome"], "tipo": ROTULO_DA_CATEGORIA[categoria], "categoria": categoria,
             "creditos": disciplina["creditos"], "periodo": disciplina["periodo"], "turma_id": id_da_turma,
@@ -404,7 +413,8 @@ def gerar_grade(dados_do_boa, curriculo, ofertas, limite_de_creditos=24, cursand
                   "curso": dados_do_boa["curso"], "versao_curricular": dados_do_boa["versao_curricular"],
                   "parametros": {"limite_de_creditos": limite_de_creditos, "cursando_como_cumpridas": marcadas,
                                  "incluir_optativas": incluir_optativas, "prioridade": prioridade,
-                                 "credito_extra_de_optativas": credito_extra_de_optativas},
+                                 "credito_extra_de_optativas": credito_extra_de_optativas,
+                                 "area_de_interesse": area_de_interesse},
                   "orcamento_de_optativas": {k: (None if v == float("inf") else v) for k, v in orcamento.items()}},
         "grade": grade,
         "creditos_total": creditos_usados,
@@ -427,7 +437,7 @@ def gerar_versoes_da_grade(dados_do_boa, curriculo, ofertas, quantidade=3, difer
     Pode devolver menos versões se não existirem grades suficientemente diferentes.
 
     `parametros` são os mesmos do gerar_grade (limite_de_creditos, cursando_como_cumpridas,
-    incluir_optativas, prioridade, credito_extra_de_optativas).
+    incluir_optativas, prioridade, credito_extra_de_optativas, area_de_interesse).
     Cada resultado ganha _meta["versao"] e _meta["diferencas_da_versao_1"] ({"entram": [...], "saem": [...]}).
     """
     versoes, a_evitar = [], []
@@ -620,6 +630,7 @@ def main():
     analisador.add_argument("--cursando-cumpridas", default="", help="códigos 'Cursando' a tratar como cumpridos, separados por vírgula, ou 'todas'")
     analisador.add_argument("--sem-optativas", action="store_true", help="não incluir optativas")
     analisador.add_argument("--prioridade", default="equilibrado", choices=list(PESOS_DA_PRIORIDADE))
+    analisador.add_argument("--area-de-interesse", help="nome da área de interesse definida no currículo")
     analisador.add_argument("--credito-extra-optativas", type=float, default=CREDITO_EXTRA_PADRAO_DE_OPTATIVAS,
                             help="folga de créditos de optativas acima do que falta (padrão 3)")
     analisador.add_argument("--saida", default="grade.json", help="JSON de saída (padrão: grade.json)")
@@ -634,7 +645,8 @@ def main():
     try:
         resultado = gerar_grade(*entradas, limite_de_creditos=argumentos.limite, cursando_como_cumpridas=marcadas,
                                 incluir_optativas=not argumentos.sem_optativas, prioridade=argumentos.prioridade,
-                                credito_extra_de_optativas=argumentos.credito_extra_optativas)
+                                credito_extra_de_optativas=argumentos.credito_extra_optativas,
+                                area_de_interesse=argumentos.area_de_interesse)
     except ErroDoMotor as erro:
         sys.exit(f"ERRO: {erro}")
     with open(argumentos.saida, "w", encoding="utf-8") as arquivo:

@@ -39,7 +39,7 @@ NOMES_DAS_ETAPAS = ["Enviar BOA", "Conferir", "Parâmetros", "Resultado"]
 DIAS_DA_SEMANA = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
 PRIORIDADES = {"Períodos mais baixos": "periodos", "Equilibrado": "equilibrado", "Pré-requisitos": "prerequisitos"}
 ESCOLHAS_INICIAIS = {"marcadas": [], "limite": 24, "incluir_optativas": True, "prioridade": "equilibrado",
-                     "folga": CREDITO_EXTRA_PADRAO_DE_OPTATIVAS}
+                     "folga": CREDITO_EXTRA_PADRAO_DE_OPTATIVAS, "area_de_interesse": None}
 
 st.set_page_config(page_title="Planejador de Grade", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""<style>
@@ -106,6 +106,7 @@ def iniciar_estado():
     st.session_state.setdefault("curriculo", None)
     st.session_state.setdefault("periodo", None)
     st.session_state.setdefault("escolhas", dict(ESCOLHAS_INICIAIS))
+    st.session_state.escolhas.setdefault("area_de_interesse", None)
     # Edição manual da grade: {código da matéria: id da turma}. None = ainda não montada para esta geração.
     st.session_state.setdefault("selecao", None)
     st.session_state.setdefault("editada", False)   # True depois que o usuário muda algo à mão
@@ -156,7 +157,8 @@ def executar_motor():
     return gerar_grade(st.session_state.boa, st.session_state.curriculo, ofertas_do_periodo(),
                        limite_de_creditos=escolhas["limite"], cursando_como_cumpridas=escolhas["marcadas"],
                        incluir_optativas=escolhas["incluir_optativas"], prioridade=escolhas["prioridade"],
-                       credito_extra_de_optativas=escolhas["folga"])
+                       credito_extra_de_optativas=escolhas["folga"],
+                       area_de_interesse=escolhas["area_de_interesse"] if escolhas["incluir_optativas"] else None)
 
 
 def barra_lateral():
@@ -300,6 +302,12 @@ def tela_parametros():
                                            help="O sistema não passa desse total.")
             escolhas["incluir_optativas"] = st.toggle("Incluir optativas", value=escolhas["incluir_optativas"])
             st.caption("Entram só até o que ainda falta cumprir, com uma folga para fechar matérias inteiras.")
+            areas = [None, *st.session_state.curriculo.get("areas_de_interesse", {})]
+            area_atual = escolhas["area_de_interesse"]
+            escolhas["area_de_interesse"] = st.selectbox(
+                "Área de interesse", areas, index=areas.index(area_atual) if area_atual in areas else 0,
+                format_func=lambda area: area or "Sem preferência", disabled=not escolhas["incluir_optativas"],
+                help="Prioriza as optativas da área escolhida segundo o manual do aluno. Outras áreas continuam elegíveis.")
             rotulo_atual = next(r for r, v in PRIORIDADES.items() if v == escolhas["prioridade"])
             escolhas["prioridade"] = PRIORIDADES[st.select_slider("O que priorizar", options=list(PRIORIDADES), value=rotulo_atual)]
             with st.expander("Avançado"):
@@ -469,14 +477,15 @@ def versoes_da_grade():
     """
     escolhas = st.session_state.escolhas
     assinatura = (st.session_state.periodo, tuple(escolhas["marcadas"]), escolhas["limite"],
-                  escolhas["incluir_optativas"], escolhas["prioridade"], escolhas["folga"])
+                  escolhas["incluir_optativas"], escolhas["prioridade"], escolhas["folga"], escolhas["area_de_interesse"])
     guardado = st.session_state.versoes_cache
     if guardado is None or guardado[0] != assinatura:
         versoes = gerar_versoes_da_grade(
             st.session_state.boa, st.session_state.curriculo, ofertas_do_periodo(), QUANTIDADE_DE_VERSOES,
             limite_de_creditos=escolhas["limite"], cursando_como_cumpridas=escolhas["marcadas"],
             incluir_optativas=escolhas["incluir_optativas"], prioridade=escolhas["prioridade"],
-            credito_extra_de_optativas=escolhas["folga"])
+            credito_extra_de_optativas=escolhas["folga"],
+            area_de_interesse=escolhas["area_de_interesse"] if escolhas["incluir_optativas"] else None)
         st.session_state.versoes_cache = guardado = (assinatura, versoes)
     return guardado[1]
 

@@ -15,6 +15,18 @@
       "os nomes seguem a grafia da fonte (inclusive 'Teconologia' em ICP081-085), para casar com o BOA."
     ]
   },
+  "areas_de_interesse": {
+    "Ciência de Dados e Engenharia de Dados": ["ICP508", "ICP359", "ICP603", "ICP102", "ICP532", "ICP605", "ICP030", "ICP009", "ICP010", "ICP357", "ICP491", "ICP100", "ICP103", "ICP011", "ICP012", "ICP021", "ICP022"],
+    "Computação Científica": ["ICP013", "ICP014", "ICP015", "ICP016", "ICP017", "ICP018", "ICP019", "ICP478", "ICP031", "ICP032"],
+    "Engenharia de Software": ["ICP616", "ICP020", "ICP023", "ICP024", "ICP041", "ICP042", "ICP051", "ICP052", "ICP061", "ICP062", "ICP640"],
+    "Sistemas Computacionais e Comunicação": ["ICP025", "ICP026", "ICP367", "ICP622", "ICP006", "ICP071", "ICP072", "ICP028"],
+    "Teoria da Computação": ["ICP356", "ICP471", "ICP518", "ICP606", "ICP633", "ICP636", "ICP638", "ICP639", "ICP027", "ICP035", "ICP036"]
+  },
+  "fonte_areas_de_interesse": {
+    "documento": "Manual do aluno, seção 2.5.2 Flexibilidade Curricular",
+    "url": "https://docs.google.com/document/d/1ulitMwYhXa06XUjx2Ft_zG-WS89A5QDhkzDs0XhjuRc/edit",
+    "observacao": "Códigos do manual normalizados conforme os nomes no currículo: ICP101 para ICP359 (Introdução ao Suporte à Decisão) e IPC633 para ICP633 (Algoritmos de Aproximação). Oficinas, disciplinas transversais e monitorias não são associadas a um perfil específico."
+  },
   "estrutura_por_periodo": {
     "creditos_totais": {
       "1": 26.0,
