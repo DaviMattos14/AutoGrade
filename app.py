@@ -10,7 +10,7 @@ Arquivos que precisam estar na mesma pasta:
     extrator_boa.py                  lê o BOA em PDF
     motor_grade.py                   escolhe a melhor grade
     curriculo_<curso>_<versão>.json  ex.: curriculo_85783_2022-2.json
-    ofertas_<período>.json           ex.: ofertas_2026-2.json
+    ofertas/ofertas_<período>.json   ex.: ofertas/ofertas_2026-2.json
 
 Privacidade: o PDF é lido na memória e nunca é gravado em disco. O extrator não guarda nome,
 matrícula nem notas, e o app só mantém na sessão as matérias cumpridas e pendentes.
@@ -34,6 +34,7 @@ from motor_grade import (CREDITO_EXTRA_PADRAO_DE_OPTATIVAS, ROTULO_DA_CATEGORIA,
                          gerar_versoes_da_grade, listar_materias_disponiveis, montar_grade_da_selecao)
 
 PASTA_DO_APP = Path(__file__).parent
+PASTA_DAS_OFERTAS = PASTA_DO_APP / "ofertas"
 QUANTIDADE_DE_VERSOES = 3
 NOMES_DAS_ETAPAS = ["Enviar BOA", "Conferir", "Parâmetros", "Resultado"]
 DIAS_DA_SEMANA = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
@@ -81,9 +82,9 @@ def ler_json_da_pasta(caminho):
 
 
 def listar_ofertas():
-    """{período: caminho} para cada ofertas_*.json da pasta, em ordem crescente de período."""
+    """{período: caminho} para cada ofertas_*.json da pasta de ofertas, em ordem crescente de período."""
     ofertas = {}
-    for caminho in sorted(PASTA_DO_APP.glob("ofertas_*.json")):
+    for caminho in sorted(PASTA_DAS_OFERTAS.glob("ofertas_*.json")):
         ofertas[ler_json_da_pasta(caminho)["_meta"]["periodo"]] = caminho
     return dict(sorted(ofertas.items()))
 
@@ -210,7 +211,7 @@ def tela_envio():
     st.markdown("Envie o seu BOA e receba uma grade sem choques de horário para o próximo período.")
     ofertas = listar_ofertas()
     if not ofertas:
-        st.error("Não encontrei nenhum arquivo ofertas_<período>.json na pasta do app.")
+        st.error("Não encontrei nenhum arquivo ofertas_<período>.json na pasta ofertas.")
         st.stop()
     # Usa automaticamente o período mais recente disponível na base de ofertas.
     periodo = next(reversed(ofertas))
@@ -773,7 +774,7 @@ def tela_ofertas():
     st.title("Todas as ofertas")
     ofertas_por_periodo = listar_ofertas()
     if not ofertas_por_periodo:
-        st.info("Não encontrei nenhum arquivo ofertas_<período>.json na pasta do app.")
+        st.info("Não encontrei nenhum arquivo ofertas_<período>.json na pasta ofertas.")
         return
     periodos = list(ofertas_por_periodo)
     inicial = st.session_state.periodo if st.session_state.periodo in periodos else periodos[-1]
