@@ -1,133 +1,510 @@
 # Contexto do projeto: Planejador Automático de Grade (UFRJ)
 
-*Documento para retomar o projeto em um novo chat · atualizado em 15/10/2026*
+*Documento para auxiliar inteligência artificial a retomar ou alterar o projeto · atualizado em 21/11/2026*
 
-## 1. Resumo do projeto
+## 1. Resumo
 
-- **Disciplina:** Computação em Nuvem (curso AWS Cloud Foundations). O trabalho final é um projeto real, com tempo curto.
-- **Tema escolhido:** planejador automático de grade. O aluno envia o BOA (Boletim de Orientação Acadêmica, PDF oficial da UFRJ) e o sistema monta a grade do próximo período, usando o currículo do curso (dado estático) e a planilha de ofertas divulgada a cada período.
-- **Curso e currículo de referência:** 85783 Ciência da Computação, versão curricular 2022/2.
-- **Estratégia:** implementar localmente para a apresentação, com interface em Streamlit, mas já desenhado para migrar para a AWS. Como a matéria é de nuvem, a nota provavelmente depende de mostrar serviços AWS funcionando, então a nuvem não deve ficar como "se der tempo".
+- **Disciplina:** Computação em Nuvem (curso AWS Cloud Foundations).
+- **Produto:** Planejador Automático de Grade para o curso de Ciência da Computação da UFRJ.
+- **Curso e currículo atual:** código 85783, versão curricular 2022/2.
+- **Entrada principal:** BOA oficial da UFRJ em PDF.
+- **Dados fixos:** currículo em JSON e ofertas em JSON por período.
+- **Interface:** aplicação web em Streamlit.
+- **Produto publicado:** https://auto-grade-sandbox.streamlit.app/
+- **Estado atual:** módulos integrados e interface funcional.
+- **Próximos trabalhos possíveis:** migração para AWS, diagrama de arquitetura, estimativa de custos, segurança e relatório.
 
-## 2. Como conduzir o trabalho com o aluno (Davi)
+O usuário envia o BOA, confere as disciplinas em curso, ajusta parâmetros e recebe grades sem choque de horário. O motor considera pré-requisitos, equivalências, créditos, optativas, prioridade, áreas de interesse e turmas disponíveis.
+
+## 2. Como a inteligência artificial deve trabalhar neste projeto
 
 - Responder em português do Brasil.
-- Conceito antes do código; instruções passo a passo; assumir zero conhecimento prévio quando for tutoria.
-- Código com nomes descritivos e comentado.
-- **Neste projeto**, o aluno pediu que o assistente analise a viabilidade e gere os arquivos (ele não vai escrever o código por enquanto).
-- Antes de gerar algo grande, alinhar as decisões e confirmar com ele.
+- Preservar a compatibilidade das estruturas JSON e dos formatos de retorno do motor.
+- Ler o código atual antes de concluir que uma regra está ativa ou desativada.
+- Não assumir que protótipos antigos representam a implementação atual.
+- Não inventar dados acadêmicos, currículos, horários ou resultados de testes.
+- Fazer mudanças pequenas e verificáveis antes de alterações amplas.
+- Atualizar documentação diretamente relacionada à implementação.
+- Executar o menor teste que cobre a alteração.
+- Tratar PDF do BOA como dado pessoal sensível.
+- Não extrair, salvar ou exibir nome, matrícula ou notas do BOA.
+- Não copiar dados pessoais do BOA para relatórios ou exemplos.
+- Em tutoria, explicar o problema primeiro e depois mostrar o código.
+- Neste projeto, o assistente pode gerar e atualizar arquivos conforme solicitado pelo usuário.
 
-## 3. Arquitetura geral
+## 3. Estado atual da implementação
 
-O trabalho se divide em **extratores** (leem arquivos brutos e salvam dados limpos), o **motor** (só consome dados limpos) e a **interface**.
+### Concluído
 
-1. Extrator do currículo (feito, validado pelo aluno).
-2. Extrator da planilha de ofertas (feito, em script reutilizável).
-3. Extrator do BOA (feito, versão beta).
-4. Motor de geração da grade (feito, versão beta).
-5. Interface em Streamlit (protótipo visual feito; falta integrar os módulos).
-6. Versão AWS, diagrama, estimativa de custos e relatório (a fazer).
+- Extração do currículo e validação dos dados.
+- Extrator da planilha de ofertas.
+- Extrator do BOA em PDF.
+- Motor automático de combinação de disciplinas e turmas.
+- Geração de até três alternativas de grade.
+- Conferência das matérias em curso no BOA.
+- Configuração de limite de créditos e prioridade.
+- Inclusão ou exclusão de optativas.
+- Preferência por área de interesse.
+- Detecção de choque de horários.
+- Edição manual da grade.
+- Visualização semanal da grade.
+- Exportação em CSV e imagem.
+- Consulta separada das ofertas.
+- Interface completa em Streamlit.
+- README atualizado com telas do produto.
+- Documento técnico detalhado do motor em `relatorios/Motor Grade.md`.
+- Testes do motor para área de interesse e alternativas.
 
-### Decisões já tomadas
+### Ainda não implementado ou não solicitado
 
-- **"Cursando" no BOA = não cumprida, por padrão.** Depois, o usuário poderá indicar quais matérias "Cursando" contam como cumpridas (todas ou só algumas). Ao marcar, o motor recalcula a elegibilidade com o grafo de pré-requisitos.
-- **Prioridade da grade:** períodos mais baixos primeiro e matérias que são pré-requisito de outras (quantas matérias cada uma destrava). Listar alternativas de grade é uma implementação futura plausível.
-- **O motor confia no status do BOA** (Facultada/Vedada) e não recalcula equivalências, porque o BOA já as resolveu. Os pré-requisitos servem para a pontuação e para recalcular quando o usuário marca "Cursando" como cumprida.
-- **Turmas de código antigo** existem na planilha por causa da atualização do currículo; o foco são alunos do currículo atual.
-- **Armazenamento:** currículo em JSON versionado por curso e versão (`85783_2022-2.json`); ofertas em um JSON por período; o BOA é dado pessoal e temporário (sem nome nem matrícula salvos).
+- Arquitetura AWS completa.
+- API Gateway.
+- Lambda em produção.
+- S3 para receber BOAs.
+- DynamoDB ou outro armazenamento temporário.
+- Diagrama final de infraestrutura.
+- Estimativa de custos AWS.
+- Validação ampla com muitos BOAs anonimizados.
 
-### Propostas ainda não confirmadas
+## 4. Arquitetura atual
 
-- **Limite de créditos por período:** padrão de 24, ajustável pelo usuário (já é um parâmetro do motor).
-- **Pesos da pontuação:** obrigatória vale 1000 mais um bônus por período baixo e por matérias que ela destrava; há três perfis de prioridade (períodos, equilibrado e pré-requisitos), com "equilibrado" como padrão. Ainda não foi testado com alunos de períodos iniciais.
-- **Optativas só até o que ainda falta cumprir**, com folga de 3 créditos para fechar matérias inteiras. Por isso as grades de exemplo têm 12 a 16 créditos, e não 24. Precisa de confirmação do aluno.
-- **Alvo na AWS:** S3 (site, uploads e JSONs), Lambda (extração e motor), API Gateway, DynamoDB com TTL para escolhas e resultados temporários. Bucket privado e BOA apagado após o processamento, o que dá argumentos de segurança, LGPD e modelo de responsabilidade compartilhada para o relatório. O curso também costuma pedir diagrama de arquitetura e estimativa de custos (AWS Pricing Calculator).
+```text
+PDF do BOA
+    |
+    v
+extrator_boa.py
+    |
+    v
+dados do BOA em memória
+    |
+    +----------------+
+    |                |
+    v                v
+currículo JSON  ofertas JSON
+    |                |
+    +--------+-------+
+             v
+       motor_grade.py
+             |
+             v
+     resultado da grade
+             |
+             v
+          app.py
+       interface Streamlit
+```
 
-## 4. As três entradas de dados
+O BOA é lido em memória e não é gravado em disco pela interface. O currículo e as ofertas são dados locais em JSON.
 
-### 4.1 BOA (PDF do aluno)
+## 5. Estrutura do repositório
 
-- PDF oficial com **texto selecionável** (não precisa de OCR nem de Textract). Cerca de 8 páginas, com cabeçalho repetido em cada uma.
-- **Layout em duas colunas:** à esquerda, o elenco recomendado do currículo (código canônico, nome, créditos, carga horária e período); à direita, as atividades aprovadas (ou equivalentes) com o grau. **A última coluna traz o status das não cumpridas:** "Inscrição Facultada", "Inscrição Vedada" ou "Cursando". Quando a matéria foi cumprida, o status fica vazio.
-- **Seções:** Obrigatórias; Optativas; Optativas de Escolha Restrita (grupo Humanidades); Cursadas e Não Explicitadas (livre escolha); Observações finais e Resumo; Relatório de Extensão.
-- **Regras de leitura validadas:**
-  - a matéria é identificada pelo código da coluna esquerda;
-  - pendente = linha que termina com um dos três status;
-  - cumprida = linha da coluna esquerda que termina com o grau;
-  - uma matéria pode ocupar duas linhas (duas equivalências aprovadas);
-  - o BOA contém nome e matrícula, que não devem ser salvos.
-- **Validações já feitas:** a soma das obrigatórias do currículo (139 créditos, 2540 h) é igual ao total do BOA. Prevendo Facultada/Vedada só pelos pré-requisitos, 106 de 107 casos coincidem com o BOA; a exceção é ICP038, provavelmente por uma equivalência que o sistema da universidade não aplicou. Isso confirma que *Vedada* significa pré-requisito não cumprido.
-- **Status:** extrator\_boa.py pronto (versão beta). Lê as palavras do PDF com sua posição (pdfplumber) e gera um JSON com curso, versão curricular, data de emissão, cumpridas (com a equivalência que as cumpriu), pendentes com status, livre escolha e o Resumo do BOA. Não extrai nome, matrícula nem notas. Os créditos lidos batem com a tabela Resumo do próprio BOA, e a leitura foi testada em um único BOA.
+- `app.py`: interface Streamlit, estado da sessão, quatro etapas e edição manual.
+- `extrator_boa.py`: leitura do PDF do BOA com `pdfplumber`.
+- `motor_grade.py`: elegibilidade, pontuação, busca combinatória e alternativas.
+- `test_motor_grade.py`: testes automatizados do motor.
+- `grades_curricular/curriculo_85783_2022-2.json`: currículo do curso.
+- `ofertas/ofertas_2026-2.json`: ofertas do período atual da base.
+- `relatorios/`: relatórios, apresentações e documentação técnica.
+- `relatorios/Motor Grade.md`: explicação detalhada do motor.
+- `assets/tela-inicial.png`: captura da tela inicial.
+- `assets/ofertas.png`: captura da consulta de ofertas.
+- `README.md`: documentação pública do projeto.
+- `requirements.txt`: dependências Python.
 
-### 4.2 Currículo 2022/2 (dado estático)
+Não existe mais um arquivo de currículo na raiz. Ele está dentro de `grades_curricular/`.
 
-- **Fonte oficial:** página do SIGA da UFRJ para Ciência da Computação 2022/2 a 9999/9 (https://siga.ufrj.br/sira/repositorio-curriculo/distribuicoes/402FED54-92A4-F79C-3ACF-54A4EA89ED35.html).
-- **Arquivo:** `curriculo_85783_2022-2.json` (validado pelo aluno).
-- **Estrutura:** `_meta`; `estrutura_por_periodo`; `totais_para_integralizacao_fonte`; `disciplinas` (150 no total: 38 obrigatórias, 83 optativas de escolha condicionada e 29 do grupo Humanidades, cada uma com nome, tipo, período, créditos, carga horária, horas teórica/prática/extensão e lista de `requisitos`); `equivalencias` (71 equações em que um lado pode ter 2 códigos que valem em conjunto); `alias_codigo` (93 códigos antigos ou de outras unidades que equivalem 1 para 1 a um código do currículo); `equivalencias_extras_de_requisito`.
-- **Pegadinhas:**
-  - alguns requisitos apontam para códigos fora do currículo: MAE121 e MAC128 resolvem para MAE992, MAC118 resolve para MAE111 e ICP231 resolve por equivalência (inclui ICP238 + ICP248);
-  - os nomes seguem a grafia da fonte, inclusive "Teconologia" em ICP081 a ICP085, para casar com o BOA;
-  - equivalências podem ser de 2 para 1 (por exemplo, CMT012 + ICP121 valendo ICP131), então um simples mapa código a código não basta.
+## 6. Dependências
 
-### 4.3 Planilha de ofertas (varia a cada período)
+O projeto usa:
 
-- **Arquivo do período 2026-2:** "Planejado-2026-2 - Visualização" (duas versões .xlsx idênticas e os CSVs das abas Turmas e Grades). Usar só a aba **Turmas**. A planilha traz o aviso de que as informações são provisórias.
-- **Organização:** cada turma é um bloco de linhas que começa onde **Disciplina e Docente** estão preenchidos. Há duas listas independentes lado a lado: TURMA (cursos com vagas, "Abrir?", número no SIGA, restrição) e AULAS (dia, horário, tipo, sala, lotação).
-- **Ponto crítico:** uma linha com Disciplina preenchida e **sem Docente** é a mesma turma listada sob outro código (código antigo ou disciplina da pós-graduação), e os encontros ficam espalhados entre essas linhas. Exemplos: Segurança da Informação (ICP473) tem quarta no ICP473 e sexta no ICP719, somando 4 h; Redes I (ICP362) tem quarta e sexta, das 10h às 12h, esta última listada sob ICP510.
-- **Significados:** coluna "Horas" = horas de aula por semana (às vezes inconsistente); "Abrir?" SIM = turma confirmada, N/A = turma de outra unidade (ex.: MAE111, MAE992, MAD243), vazio = pendente; tipo de oferta "N T#" = período recomendado e número da turma, além de Elet, SVÇ, PPGI, ProfComp e Out; BCC1/BCC2 são as vagas do curso.
-- **Resultado para 2026-2:** 108 turmas reais; 57 abertas a BCC (54 confirmadas e 3 externas). ICP101 (código antigo equivalente a ICP359) é a única oferta de Introdução ao Suporte à Decisão. ICPZ55 (extensão) não tem horário fixo. Restam 2 avisos de horas (ICP115, turma 2, e ICP082), que são erros da coluna Horas e não dos horários.
+- Python;
+- Streamlit `>=1.50`;
+- pdfplumber `>=0.11`;
+- Matplotlib `>=3.9`.
 
-## 5. Arquivos produzidos
+Instalação:
 
-- `curriculo_85783_2022-2.json`: currículo validado.
-- `extrator_ofertas.py`: script reutilizável a cada período. Uso: `python extrator_ofertas.py planilha.xlsx --curriculo curriculo_85783_2022-2.json`. Aceita .xlsx ou .csv; opções `--periodo`, `--curso` (padrão BCC), `--todas`, `--saida` e `--aba`. Valida o layout da planilha e para com mensagem clara se ele mudar. Só usa a biblioteca padrão, mais `openpyxl` para ler .xlsx.
-- `ofertas_2026-2.json`: saída do extrator, com `_meta`, `turmas` e `avisos`. Cada turma tem: `id`, `codigo`, `nome`, `codigos_cruzados`, `docentes`, `tipo_de_oferta`, `categoria`, `periodo_recomendado`, `numero_da_turma`, `horas_semanais`, `numeros_siga`, `abrir`, `situacao` (confirmada, externa, pendente ou cancelada), `restrita_aos_cursos`, `vagas_por_curso`, `aulas` (dia, `inicio_min` e `fim_min` em minutos, tipo, sala, `listada_em`), `horario_completo` e `codigo_no_curriculo`.
-- `extrator_boa.py` e `boa_extraido.json`: leitura do BOA em PDF, em Python puro (`pdfplumber`). Uso: `python extrator_boa.py boa.pdf --curriculo curriculo_85783_2022-2.json`; como função, `extrair_boa(arquivo)`. A saída tem `curso`, `versao_curricular`, `emitido_em`, `cumpridas` (com `cursada_como`), `pendentes` (código, nome, seção, período, créditos, status), `livre_escolha_cursadas`, `resumo`, `conferencias` e `avisos`.
-- `motor_grade.py`, `grade_padrao.json` e `grade_redes_cumprida.json`: o motor e dois resultados de exemplo. Uso: `python motor_grade.py --boa boa_extraido.json --curriculo curriculo_85783_2022-2.json --ofertas ofertas_2026-2.json --limite 24`. Opções: `--cursando-cumpridas ICP362` (ou `todas`), `--sem-optativas`, `--prioridade periodos|equilibrado|prerequisitos` e `--credito-extra-optativas`. Como função, `gerar_grade(...)`.
-- `prototipo_streamlit.py` e as cinco imagens `prototipo_1_envio_do_boa.png` a `prototipo_5_resultado_com_conflito.png`.
-- Em um novo chat, estes arquivos precisam ser anexados de novo, junto com um BOA anonimizado (sem nome e matrícula) para testes.
+```bash
+python -m pip install -r requirements.txt
+```
 
-## 6. Regras do motor (versão beta pronta)
+Execução:
 
-1. **Entradas:** `boa_extraido.json`, currículo, ofertas e parâmetros (limite de créditos, quais "Cursando" contam como cumpridas, incluir optativas, prioridade).
-2. **Candidatas:** matérias pendentes liberadas (Facultada ou Cursando) com turma `confirmada` ou `externa`, com `horario_completo` verdadeiro, identificadas por `codigo_no_curriculo`. As *Vedada* ficam de fora, a menos que a marcação do usuário complete seus pré-requisitos; fora isso, vale sempre o status do BOA.
-3. **Restrições:** uma turma por matéria; nenhum choque de horário (dois encontros colidem se estão no mesmo dia e `inicio_a < fim_b` e `inicio_b < fim_a`; encostar não colide); limite de créditos.
-4. **Pontuação:** obrigatória = 1000 + peso do período × (10 − período) + peso de "destrava" × número de matérias pendentes que dependem dela, direta ou em cadeia; optativa = 100 + peso de "destrava" × destrava + créditos. Pesos (período, destrava): períodos (20, 5), equilibrado (10, 10), pré-requisitos (5, 20).
-5. **Optativas:** entram só até o que falta cumprir (créditos do Resumo do BOA menos os das matérias marcadas), mais uma folga de 3 créditos.
-6. **Busca:** exata, por ramificação e poda (acha a melhor combinação, e não uma aproximação).
-7. **O que o usuário vê além da grade:** as matérias que ficaram de fora, cada uma com o motivo (choque de horário com qual matéria, em quais dias e horários; limite de créditos; optativas já cobrindo o necessário; bloqueada por pré-requisito pendente), as atividades sem horário fixo (ICPZ55, ICPX06) e avisos (por exemplo, Humanidades sem turma ofertada).
+```bash
+streamlit run app.py
+```
 
-**Resultados com dados reais (2026-2):**
+Testes:
 
-- **Nada marcado:** Redes I (ICP362), ICP005 e ICP016, somando 12 créditos. Metodologia da Pesquisa (ICP472) fica de fora por choque com Redes I na quarta e na sexta, das 10h às 12h.
-- **Redes I marcada como cumprida:** ICP472, Segurança da Informação (ICP473, liberada pela marcação), ICP005 e ICP016, somando 16 créditos. O TCC (ICPK01) continua bloqueado por falta de Metodologia.
-- **Humanidades:** faltam 4 créditos e nenhuma turma é ofertada neste período.
-- **Testes:** em 600 casos aleatórios, a busca deu o mesmo resultado que uma força bruta que testa todas as combinações. As grades geradas não têm choque, matéria repetida nem excesso de créditos, e o resultado é o mesmo em execuções repetidas.
+```bash
+python -m unittest test_motor_grade.py
+```
 
-## 7. Interface em Streamlit (telas planejadas)
+## 7. Interface em Streamlit
 
-1. **Upload e período:** enviar o BOA e escolher o período das ofertas.
-2. **Conferência:** resumo do que foi lido (curso, versão, cumpridas e pendentes) e lista das matérias "Cursando" com uma caixa "conta como cumprida" em cada uma.
-3. **Parâmetros:** limite de créditos, incluir ou não optativas e prioridades.
-4. **Resultado:** grade semanal (dias x horários), lista de turmas escolhidas (docente e sala), créditos totais, conflitos e avisos, com exportação.
+A interface possui quatro etapas:
 
-Protótipos: cinco imagens (`prototipo_1_envio_do_boa.png` a `prototipo_5_resultado_com_conflito.png`) tiradas de um app Streamlit real (`prototipo_streamlit.py`, aberto com `?tela=1` até `?tela=5`) e alimentadas com as saídas reais do motor.
+1. **Enviar BOA**
+   - recebe um PDF;
+   - identifica o curso e a versão curricular;
+   - encontra o currículo correspondente;
+   - não mantém o conteúdo do arquivo após a leitura.
 
-## 8. Próximos passos
+2. **Conferir**
+   - mostra curso, versão, data de emissão e resumo;
+   - permite marcar matérias em curso como cumpridas;
+   - informa quais matérias seriam liberadas pela marcação.
 
-1. Integrar os módulos no app Streamlit local: upload do BOA, extrator, conferência com as caixas "Cursando", motor e grade, usando o protótipo visual como base.
-2. Testar com BOAs anonimizados de perfis diferentes (principalmente alunos de períodos iniciais) para validar a leitura do BOA e os pesos da prioridade.
-3. Deixar o usuário escolher as optativas (hoje o desempate entre optativas equivalentes é pela ordem do código) e, depois, mostrar alternativas de grade.
-4. Versão AWS (Lambda, S3, API Gateway, DynamoDB com TTL), diagrama, estimativa de custos, segurança e relatório.
+3. **Parâmetros**
+   - limite de créditos;
+   - inclusão ou exclusão de optativas;
+   - área de interesse;
+   - prioridade;
+   - folga de optativas.
 
-## 9. Pontos em aberto
+4. **Resultado**
+   - apresenta até três versões;
+   - permite trocar de alternativa;
+   - mostra grade semanal;
+   - permite editar matérias e turmas;
+   - oferece exportação em CSV e imagem;
+   - mostra matérias excluídas e motivos.
 
-- Confirmar a regra de optativas só até o que falta (com folga de 3 créditos), em vez de preencher o limite de créditos.
-- Limite de créditos padrão (24) e como o usuário o altera.
-- Pesos da pontuação: as três prioridades deram a mesma grade para o BOA de teste, então falta testar com outros perfis.
-- Humanidades: faltam 4 créditos e nenhuma turma é ofertada em 2026-2; definir como a interface mostra isso.
-- Horários possivelmente incompletos na planilha provisória e escopo mínimo da migração para a AWS dentro do prazo.
+A aba **Todas as ofertas** permite consultar turmas por código, nome ou docente e visualizar resultados por período, obrigatórias e optativas.
 
-## 10. Como retomar em um novo chat
+## 8. BOA
 
-Anexe este documento, os arquivos da seção 5 e, se possível, um BOA anonimizado. Peça: "continuar do passo 1 dos próximos passos: integrar os módulos no app Streamlit".
+O BOA é um PDF com texto selecionável. `extrator_boa.py` usa posições das palavras com `pdfplumber`.
+
+O extrator deve identificar:
+
+- curso;
+- versão curricular;
+- data de emissão;
+- disciplinas cumpridas;
+- disciplinas pendentes;
+- status da inscrição;
+- resumo curricular;
+- seção curricular;
+- créditos;
+- períodos;
+- livre escolha;
+- extensões;
+- equivalências entre matérias.
+
+Principais status:
+
+- `Facultada`: a matéria está disponível ao estudante;
+- `Cursando`: não conta como cumprida por padrão;
+- `Vedada`: não atende aos pré-requisitos conhecidos pelo BOA;
+- estado vazio: a matéria aparece como cumprida.
+
+A leitura deve ser validada contra o currículo sempre que houver arquivos suficientes. Se o PDF não puder ser interpretado, o erro deve ser mostrado claramente ao usuário.
+
+Não persistir nome, matrícula, notas ou conteúdo integral do BOA.
+
+## 9. Currículo
+
+O arquivo atual é `grades_curricular/curriculo_85783_2022-2.json`.
+
+Estrutura relevante:
+
+- `_meta`: curso e versão curricular;
+- `disciplinas`: nome, tipo, período, créditos e pré-requisitos;
+- `areas_de_interesse`: áreas disponíveis no currículo atual;
+- `alias_codigo`: equivalência direta de códigos;
+- `equivalencias_extras_de_requisito`: combinações alternativas de requisitos.
+
+A chave oficial atual usada pelo motor é `areas_de_interesse`.
+
+Ao alterar o JSON curricular, atualizar também:
+
+- `achar_curriculo()` em `app.py`;
+- compatibilidade entre BOA e currículo;
+- áreas de interesse;
+- textos e categorias exibidos;
+- testes afetados.
+
+## 10. Ofertas
+
+O período atual da base é 2026-2. Os dados estão em `ofertas/ofertas_2026-2.json`.
+
+Cada turma pode conter:
+
+- `id`;
+- `codigo_no_curriculo`;
+- `codigo`;
+- `nome`;
+- `situacao`;
+- `horario_completo`;
+- `docentes`;
+- `aulas`;
+- `dia_numero`;
+- `inicio_min`;
+- `fim_min`;
+- `sala`;
+- outras informações da planilha.
+
+Situações utilizáveis pelo motor:
+
+- `confirmada`;
+- `externa`.
+
+Uma turma só entra na busca automática quando:
+
+- possui código associado ao currículo;
+- está confirmada ou externa;
+- possui horário completo.
+
+As informações da planilha são provisórias e podem mudar. A interface deve orientar a confirmar os horários no SIGA.
+
+## 11. Motor de grade
+
+O motor está em `motor_grade.py`. A documentação detalhada está em `relatorios/Motor Grade.md`.
+
+### Entradas de `gerar_grade()`
+
+- dados do BOA;
+- currículo;
+- ofertas;
+- limite de créditos;
+- matérias em curso consideradas cumpridas;
+- incluir optativas;
+- prioridade;
+- folga de créditos de optativas;
+- área de interesse;
+- conjuntos de grades a evitar;
+- diferença mínima entre versões.
+
+### Pré-requisitos
+
+`requisito_satisfeito()` considera:
+
+- requisito cumprido diretamente;
+- alias do código;
+- equivalência alternativa composta por vários códigos.
+
+Uma matéria marcada como cumprida pode liberar matérias que estavam vedadas.
+
+### Elegibilidade
+
+Uma matéria pendente pode ser candidata quando:
+
+- está facultada ou em curso;
+- foi liberada por pré-requisitos marcados como cumpridos;
+- pertence ao currículo;
+- possui turma utilizável.
+
+Uma matéria vedada permanece bloqueada se falta qualquer pré-requisito.
+
+### Turmas utilizáveis
+
+Confirmada ou externa, com código no currículo e horário completo.
+
+### Pontuação
+
+Obrigatória:
+
+```text
+1000
++ bônus pelo período
++ bônus pelas matérias pendentes que ela destrava
+```
+
+Optativa:
+
+```text
+100
++ bônus pelas matérias que destrava
++ créditos da matéria
++ 100 quando pertence à área de interesse
+```
+
+Pesos por prioridade:
+
+| Prioridade | Período | Destrava |
+| --- | ---: | ---: |
+| `periodos` | 20 | 5 |
+| `equilibrado` | 10 | 10 |
+| `prerequisitos` | 5 | 20 |
+
+### Limite e optativas
+
+- o limite geral é configurado pelo usuário;
+- optativas condicionadas e humanidades possuem orçamento separado;
+- optativas só entram até a quantidade faltante mais uma folga;
+- desativar optativas define o orçamento dessas categorias como zero.
+
+### Choque de horários
+
+Há choque quando duas aulas:
+
+- estão no mesmo dia;
+- possuem intervalos que se sobrepõem.
+
+Uma turma que termina exatamente quando outra começa não colide.
+
+### Busca
+
+`buscar_melhor_combinacao()` usa ramificação e poda:
+
+- tenta cada turma da matéria;
+- tenta não incluir a matéria;
+- mantém aulas ocupadas;
+- acumula créditos;
+- calcula limite superior;
+- descarta ramos que não podem superar a melhor grade;
+- possui limite de segurança de dois milhões de nós.
+
+Se a busca atingir o limite, o resultado pode ser a melhor grade encontrada até o momento, não necessariamente a solução completa.
+
+### Versões alternativas
+
+`gerar_versoes_da_grade()` gera até três versões:
+
+- versão 1: melhor grade;
+- versão 2: melhor grade que difere da 1 em pelo menos duas matérias;
+- versão 3: melhor grade que difere da 1 e da 2 em pelo menos duas matérias.
+
+Uma alternativa não pode ser apenas um subconjunto da anterior.
+
+### Edição manual
+
+`listar_materias_disponiveis()` classifica matérias disponíveis, bloqueadas e sem turma.
+
+`explicar_choque()` encontra conflitos entre uma turma candidata e a grade atual.
+
+`montar_grade_da_selecao()` transforma as escolhas do usuário no formato utilizado pela interface.
+
+Na grade editada, pontuação e matérias excluídas deixam de representar o resultado automático original.
+
+## 12. Convenções de código
+
+- Arquivos Python codificados em UTF-8.
+- Strings e documentos do usuário em português.
+- Funções com nomes em português e orientadas a uma responsabilidade clara.
+- Nomes de parâmetros e chaves JSON devem ser mantidos por compatibilidade.
+- Não alterar silenciosamente a estrutura de retorno de `gerar_grade()`.
+- Campos `_meta`, `grade`, `nao_incluidas`, `sem_horario_fixo`, `estatisticas` e `avisos` fazem parte do formato atual.
+- Utilizar `ErroDoMotor` para entradas incompatíveis ou inválidas.
+- Utilizar `ErroDeBOA` para problemas específicos da leitura do BOA.
+- Não marcar uma execução como concluída sem verificar resultado, testes ou comportamento visível.
+- Não remover arquivos ou dados não relacionados à alteração.
+
+## 13. Testes existentes
+
+`test_motor_grade.py` cobre:
+
+- efeito da área de interesse;
+- preferência entre optativas em choque;
+- ausência de preferência;
+- área sem oferta;
+- áreas não liberando matérias vedadas;
+- desativação de optativas;
+- limite de créditos;
+- prioridade de obrigatórias;
+- área inválida;
+- aplicação da preferência nas três versões;
+- correspondência das áreas com optativas condicionadas.
+
+Comando:
+
+```bash
+python -m unittest test_motor_grade.py
+```
+
+Ao implementar comportamento novo no motor, adicionar casos focados ao mesmo arquivo ou criar um novo arquivo de testes existente no padrão.
+
+## 14. Histórico de decisões
+
+Decisões já consolidadas:
+
+- Cursando não conta como cumprida por padrão.
+- Facultada é elegível.
+- Vedada é recalculada pela marcação de matérias em curso.
+- Turmas confirmadas e externas são utilizáveis.
+- Turmas sem horário completo não entram na busca automática.
+- Encostar horários não é choque.
+- A busca deve ser exata enquanto não atingir o limite de segurança.
+- Optativas são limitadas pelo que falta e não apenas pelo limite geral.
+- Até três alternativas podem ser exibidas.
+- O PDF não é armazenado.
+- A implementação AWS é uma evolução, não uma dependência da versão local.
+
+Pontos que ainda podem mudar:
+
+- validação em massa com BOAs de perfis diferentes;
+- pesos das prioridades para perfis acadêmicos ainda não testados;
+- seleção manual mais detalhada de optativas;
+- apresentação oficial dos horários provisórios;
+- arquitetura AWS final;
+- persistência temporária de estado e TTL;
+- adaptação para outros cursos e currículos.
+
+## 15. Migração AWS planejada
+
+Uma implementação futura pode usar:
+
+- **S3:** hospedagem estática, dados públicos e, se necessário, uploads privados temporários;
+- **Lambda:** extrair BOA e executar o motor;
+- **API Gateway:** receber chamadas HTTP;
+- **DynamoDB:** guardar resultados temporários com TTL;
+- **CloudWatch:** logs e métricas;
+- **KMS:** proteção de dados, se houver armazenamento;
+- **WAF:** proteção da API pública.
+
+Recomendações:
+
+- não usar um bucket público para o BOA;
+- remover o BOA imediatamente após o processamento;
+- limitar tamanho e tipo do upload;
+- aplicar timeout e memória adequados às Lambdas;
+- preferir dados públicos do currículo e ofertas em objetos separados;
+- usar TTL em dados temporários;
+- registrar arquitetura, responsabilidades compartilhadas e custos;
+- não expor logs ou payloads com dados pessoais.
+
+## 16. Arquivos que uma IA deve consultar
+
+Para continuidade geral:
+
+1. este documento;
+2. `README.md`;
+3. `relatorios/Motor Grade.md`;
+4. `app.py`;
+5. `motor_grade.py`;
+6. `extrator_boa.py`;
+7. `test_motor_grade.py`;
+8. currículo e oferta relevantes.
+
+Para mudanças específicas:
+
+- interface ou estado da sessão: `app.py`;
+- busca ou pontuação: `motor_grade.py`;
+- leitura do BOA: `extrator_boa.py`;
+- dados curriculares: `grades_curricular/`;
+- ofertas: `ofertas/`;
+- testes: `test_motor_grade.py`;
+- instruções públicas: `README.md`.
+
+## 17. Como retomar o trabalho
+
+Ao iniciar em um novo contexto, forneça este documento e o objetivo concreto da tarefa.
+
+Exemplo:
+
+```text
+Continuar a partir deste contexto.
+Melhore a página de conferência do BOA:
+1. preservar a separação entre BOA, currículo e oferta;
+2. mostrar o efeito das marcações Cursando;
+3. adicionar testes visuais ou automatizados possíveis;
+4. não alterar a pontuação do motor.
+```
+
+Antes de concluir uma tarefa, informar:
+
+- arquivos alterados;
+- comportamento implementado;
+- testes executados;
+- pontos pendentes ou limitações encontradas.
